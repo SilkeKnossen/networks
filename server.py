@@ -45,34 +45,10 @@ def serve(port, public_html, cgibin):
 
             # cgibin.enable()
             if requestFile[:8] == '/cgi-bin':
-                requestScript = requestFile.split('/')[2]
-                print(requestScript)
-                script = cgibin + '/' + requestScript
-                output = subprocess.call(script)
-                print('DID IT')
+                response = handle_cgi(connection, requestFile)
 
-            elif requestFile == '/':
-                requestFile = '/index.html'
-
-            requestFile = public_html + requestFile
-            print("requested file is at", requestFile)
-
-            try:
-                # print('tried1')
-                # print(requestFile)
-                with open(requestFile, 'rb') as fileHandle:
-                    content = fileHandle.read()
-                    fileHandle.close()
-
-                responseHeader = get_headers(200, requestFile, content)
-
-            except Exception as e:
-                content = b'<html><body><h>Error 404: \
-                            File not found</h></body></html>'
-                responseHeader = get_headers(404, None, content)
-
-            responseHeader = responseHeader.encode()
-            response = responseHeader + content
+            else:
+                response = handle_request(connection, requestFile)
 
             print('Send response to client')
             connection.send(response)
@@ -128,6 +104,47 @@ def get_headers(code, responseFile, content):
 
     print('HALLO HEADER', header)
     return header
+
+def handle_request(connection, requestFile):
+    if requestFile == '/':
+        requestFile = '/index.html'
+
+    requestFile = public_html + requestFile
+    print("requested file is at", requestFile)
+
+    try:
+        with open(requestFile, 'rb') as fileHandle:
+            content = fileHandle.read()
+            fileHandle.close()
+
+        responseHeader = get_headers(200, requestFile, content)
+
+    except Exception as e:
+        content = b'<html><body><h>Error 404: \
+                    File not found</h></body></html>'
+        responseHeader = get_headers(404, None, content)
+
+    responseHeader = responseHeader.encode()
+    response = responseHeader + content
+    return response
+
+def handle_cgi(connection, requestScript):
+    script = requestScript.split('/')[2]
+    print('SCRIPT', script)
+    script_path = cgibin + '/' + script
+
+    try:
+        output = subprocess.call(script)
+        header = 'HTTP/1.1 200 OK\r\n'
+        print(output)
+        print('DID IT')
+
+    except:
+        header = 'HTTP/1.1 404 Not Found\r\n'
+
+    response = header.encode()
+    return response
+
 
 # This the entry point of the script.
 # Do not change this part.
